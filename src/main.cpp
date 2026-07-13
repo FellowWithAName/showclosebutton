@@ -1,56 +1,43 @@
+#include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
-#include <Geode/utils/general.hpp>
-#include <Geode/ui/GeodeUI.hpp>
 
 using namespace geode::prelude;
 
-// 1. Give the hook a custom name (MyMenuLayer) so we can reference it in menu_selector
-class $modify(MyMenuLayer, MenuLayer) {
+class $modify(MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
 
-        // On desktop, GD already adds its own close button to the main menu.
-        // If it's there, we don't need to add another one.
-        if (this->getChildByID("close-menu")) {
-            return true;
-        }
+        // 1. Get the dynamic window size of the user's iOS device screen
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-        auto closeSpr = CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png");
-        // Never assume a sprite frame exists - bail out safely if it's missing.
-        if (!closeSpr) {
-            return true;
-        }
-
+        // Create the close button sprite (using the classic standard exit look)
+        auto closeSprite = CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png");
+        
+        // Setup the button wrapper and pair it to our custom quit function
         auto closeBtn = CCMenuItemSpriteExtra::create(
-            closeSpr,
+            closeSprite,
             this,
-            menu_selector(MyMenuLayer::onCloseGameButton) // 2. Changed from MenuLayer:: to MyMenuLayer::
+            menu_selector(MenuLayer::onCustomQuit)
         );
-        closeBtn->setID("show-close-button-btn"_spr);
 
+        // Put the button inside a custom menu layout wrapper
         auto menu = CCMenu::create();
-        menu->setID("show-close-button-menu"_spr);
         menu->addChild(closeBtn);
-        // Bottom-left corner of the screen, matching where GD normally
-        // places the close button on desktop.
-        menu->setPosition({ 30.f, 30.f });
+        
+        // 2. Position it at the top-left (25 pixels from left, 25 pixels down from the very top)
+        menu->setPosition({25.f, winSize.height - 25.f});
+        menu->setID("close-button-menu"_spr);
 
+        // Add our new layer onto the Main Menu
         this->addChild(menu);
 
         return true;
     }
 
-    void onCloseGameButton(CCObject*) {
-        createQuickPopup(
-            "Close Game",
-            "Are you sure you want to <cr>close</c> the game?",
-            "Cancel",
-            "Close",
-            [](FLAlertLayer* layer, bool btn2) { // 3. Changed 'auto' to 'FLAlertLayer*' to make MSVC happy
-                if (btn2) {
-                    geode::utils::game::exit(true); // 4. Added 'true' so the game saves data before exiting
-                }
-            }
-        );
+    // 3. Trigger the standard closing sequence instead of hard-killing the app
+    void onCustomQuit(CCObject* sender) {
+        // This invokes the vanilla closing layer, which allows "Save on Exit" 
+        // to catch the hook cleanly, save your data, and exit smoothly.
+        this->onQuit(sender);
     }
 };
